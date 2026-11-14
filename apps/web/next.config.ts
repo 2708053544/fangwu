@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@i-renovation/shared'],
   serverExternalPackages: ['@electric-sql/pglite'],
+  // 无服务器平台打包函数时，把 PGlite 的 wasm/数据文件一起带上，否则运行时初始化失败
+  outputFileTracingIncludes: {
+    '/api/**': ['../../node_modules/@electric-sql/pglite/dist/**'],
+  },
 };
 
 export default nextConfig;
