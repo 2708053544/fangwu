@@ -7,6 +7,7 @@ import { eq, asc, and, inArray, isNotNull, lte } from 'drizzle-orm';
 import path from 'node:path';
 import fs from 'node:fs';
 import { timingSafeEqual } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { getMembershipTier } from './membership';
 import { calculateContractorCommission } from './commission';
 import { PRICE_REFERENCES, type PriceReference } from './price';
@@ -311,24 +312,14 @@ export async function getDb() {
         : serverless
           ? '/tmp/pglite-data'
           : path.join(process.cwd(), '..', '..', '.pglite-data');
-      // 冷启动提速：把构建时预生成的空数据目录复制到 /tmp，跳过 PGlite 首次 initdb
-      if (serverless && !fs.existsSync(dataDir)) {
-        const seed = [
-          path.join(process.cwd(), 'pglite-seed'),
-          path.join(process.cwd(), 'apps', 'web', 'pglite-seed'),
-        ].find((p) => fs.existsSync(p));
-        if (seed) {
-          try {
-            fs.cpSync(seed, dataDir, { recursive: true });
-            // 复制不完整（缺关键目录）就丢掉，退回正常初始化
-            if (!fs.existsSync(path.join(dataDir, 'PG_VERSION')) || !fs.existsSync(path.join(dataDir, 'base'))) {
-              fs.rmSync(dataDir, { recursive: true, force: true });
-            }
-          } catch {
-            fs.rmSync(dataDir, { recursive: true, force: true });
-          }
-        }
-      }
+      // 冷启动提速：构建时预生成的空数据库打包成单个 gzip，解包后直接打开，
+      // 跳过 PGlite 首次 initdb 的 5 秒开销（Netlify 函数 10 秒超时会直接 502）
+      const seedFile = serverless && !fs.existsSync(dataDir)
+        ? [
+            path.join(process.cwd(), 'pglite-seed.tar.gz'),
+            path.join(process.cwd(), 'apps', 'web', 'pglite-seed.tar.gz'),
+          ].find((p) => fs.existsSync(p))
+        : undefined;
       try {
         fs.mkdirSync(dataDir, { recursive: true });
       } catch {
@@ -336,7 +327,21 @@ export async function getDb() {
         dataDir = '/tmp/pglite-data';
         fs.mkdirSync(dataDir, { recursive: true });
       }
-      const client = new PGlite(dataDir);
+      let client: PGlite | undefined;
+      if (seedFile) {
+        try {
+          execFileSync('tar', ['-xzf', seedFile, '-C', dataDir], { stdio: 'ignore' });
+          if (fs.existsSync(path.join(dataDir, 'PG_VERSION'))) client = new PGlite(dataDir);
+        } catch { /* 解包失败就走下面的兜底 */ }
+      }
+      if (!client) {
+        try {
+          client = new PGlite(dataDir, seedFile ? { loadDataDir: new Blob([fs.readFileSync(seedFile)]) } : undefined);
+        } catch {
+          fs.rmSync(dataDir, { recursive: true, force: true });
+          client = new PGlite(dataDir);
+        }
+      }
       await client.exec(DDL);
       const db = drizzle(client);
       // 载入随代码发布的参考价：按 id 更新，重复启动不会重复插入

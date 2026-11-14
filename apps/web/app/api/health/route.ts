@@ -14,8 +14,8 @@ export async function GET() {
     const cause = err.cause instanceof Error ? `${err.cause.name}: ${err.cause.message}` : err.cause ? String(err.cause) : null;
     const probes = [
       '/tmp/pglite-data',
-      path.join(process.cwd(), '.pglite-seed'),
-      path.join(process.cwd(), 'apps', 'web', '.pglite-seed'),
+      path.join(process.cwd(), 'pglite-seed.tar.gz'),
+      path.join(process.cwd(), 'apps', 'web', 'pglite-seed.tar.gz'),
     ].map((d) => ({ d, exists: fs.existsSync(d), n: fs.existsSync(d) ? fs.readdirSync(d).length : 0 }));
     return NextResponse.json(
       { ok: false, database: 'unavailable', detail: `${err.name}: ${err.message}`, cause, stack: (err.stack || '').split('\n').slice(0, 5), cwd: process.cwd(), probes },
