@@ -37,8 +37,14 @@ export async function POST(req: Request) {
     const bytes = Buffer.from(await file.arrayBuffer());
     const ext = bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'png' : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? 'jpg' : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' ? 'webp' : null;
     if (!ext) return NextResponse.json({ error: '请上传有效的 PNG、JPEG 或 WebP 户型图' }, { status: 400 });
-    const dir = process.env.IRENO_UPLOAD_DIR || (process.env.VERCEL || process.env.NETLIFY ? '/tmp/uploads' : path.join(process.cwd(), '..', '..', 'uploads'));
-    fs.mkdirSync(dir, { recursive: true });
+    const serverless = Boolean(process.env.VERCEL || process.env.NETLIFY || process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME);
+    let dir = process.env.IRENO_UPLOAD_DIR || (serverless ? '/tmp/uploads' : path.join(process.cwd(), '..', '..', 'uploads'));
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      dir = '/tmp/uploads';
+      fs.mkdirSync(dir, { recursive: true });
+    }
     floorPlanPath = path.join(dir, `${randomUUID()}.${ext}`);
     fs.writeFileSync(floorPlanPath, bytes);
   }

@@ -302,12 +302,22 @@ export async function getDb() {
   if (!globalForDb.__dbPromise) {
     globalForDb.__dbPromise = (async () => {
       // 允许并行实例使用独立数据目录（IRENO_PGLITE_DIR），默认不变
-      const dataDir = process.env.IRENO_PGLITE_DIR
+      // 无服务器平台（Vercel / Netlify / 任意 Lambda）项目目录只读，数据只能放 /tmp
+      const serverless = Boolean(
+        process.env.VERCEL || process.env.NETLIFY || process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME,
+      );
+      let dataDir = process.env.IRENO_PGLITE_DIR
         ? path.resolve(process.env.IRENO_PGLITE_DIR)
-        : process.env.VERCEL || process.env.NETLIFY
+        : serverless
           ? '/tmp/pglite-data'
           : path.join(process.cwd(), '..', '..', '.pglite-data');
-      fs.mkdirSync(dataDir, { recursive: true });
+      try {
+        fs.mkdirSync(dataDir, { recursive: true });
+      } catch {
+        // 目录不可写时（只读文件系统）退回 /tmp
+        dataDir = '/tmp/pglite-data';
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
       const client = new PGlite(dataDir);
       await client.exec(DDL);
       const db = drizzle(client);
