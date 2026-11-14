@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 // with the index at the front so playback can start before the whole file has arrived.
 const FIRST_VIDEO = '/videos/landing-first.mp4';
 const SECOND_VIDEO = '/videos/landing-second.mp4';
+const POSTER = '/images/landing-fallback.png';
 
 /**
  * Home-page call to action. Signed out: opens the top bar's register or login form.
@@ -56,13 +57,7 @@ export default function LeadHero() {
     first.addEventListener('playing', onPlaying, { once: true });
     second.addEventListener('playing', onPlaying, { once: true });
 
-    // Start downloading the second video as soon as the first plays, so it is ready by the time
-    // the visitor scrolls (it used to start loading only on scroll).
-    const preloadSecond = () => {
-      if (second.paused && second.readyState < 3) { second.preload = 'auto'; second.load(); }
-    };
-    first.addEventListener('playing', preloadSecond, { once: true });
-
+    // 不再提前下载第二个视频：等到用户真的滚到第二屏再加载，避免首屏拉 10MB+
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
     let isScrolled = false;
     let switchId = 0;       // a newer scroll cancels an older switch still waiting for its video
@@ -81,6 +76,8 @@ export default function LeadHero() {
       };
       if (!second.paused && second.readyState >= 3) { shown(); return; }
       second.addEventListener('playing', shown, { once: true });
+      second.preload = 'auto';
+      second.load();
       second.currentTime = 0;
       play(second);
     };
@@ -114,7 +111,6 @@ export default function LeadHero() {
       clearTimeout(pauseTimer);
       first.removeEventListener('playing', onPlaying);
       second.removeEventListener('playing', onPlaying);
-      first.removeEventListener('playing', preloadSecond);
       introImage.removeEventListener('load', reveal);
       window.removeEventListener('scroll', onScroll);
       document.removeEventListener('visibilitychange', updatePlayback);
@@ -128,7 +124,7 @@ export default function LeadHero() {
   return (
     <section className="landing-hero" ref={heroRef}>
       <div className="landing-sticky">
-        <video ref={secondRef} className="landing-video" src={SECOND_VIDEO} muted playsInline loop preload="metadata" aria-hidden="true" />
+        <video ref={secondRef} className="landing-video" src={SECOND_VIDEO} muted playsInline loop preload="none" aria-hidden="true" />
         <video
           ref={firstRef}
           className={'landing-video landing-video-first' + (scrolled ? ' is-scrolled' : '')}
@@ -136,6 +132,8 @@ export default function LeadHero() {
           muted
           playsInline
           loop
+          preload="metadata"
+          poster={POSTER}
           aria-hidden="true"
         />
         <div className="landing-intro" ref={introRef} aria-hidden="true">
