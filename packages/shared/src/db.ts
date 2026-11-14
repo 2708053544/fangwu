@@ -6,6 +6,7 @@ import { pgTable, serial, text, integer, jsonb, doublePrecision } from 'drizzle-
 import { eq, asc, and, inArray, isNotNull, lte } from 'drizzle-orm';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { timingSafeEqual } from 'node:crypto';
 import { getMembershipTier } from './membership';
 import { calculateContractorCommission } from './commission';
@@ -301,10 +302,15 @@ const globalForDb = globalThis as unknown as { __dbPromise?: Promise<ReturnType<
 export async function getDb() {
   if (!globalForDb.__dbPromise) {
     globalForDb.__dbPromise = (async () => {
-      // 允许并行实例使用独立数据目录（IRENO_PGLITE_DIR），默认不变
+      // 允许并行实例使用独立数据目录（IRENO_PGLITE_DIR），默认不变。
+      // 云端 Serverless（Vercel / Netlify / Lambda）项目目录只读，数据目录退到系统临时目录 /tmp。
+      const readOnlyHost = !process.env.IRENO_PGLITE_DIR
+        && Boolean(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
       const dataDir = process.env.IRENO_PGLITE_DIR
         ? path.resolve(process.env.IRENO_PGLITE_DIR)
-        : path.join(process.cwd(), '..', '..', '.pglite-data');
+        : readOnlyHost
+          ? path.join(os.tmpdir(), 'pglite-data')
+          : path.join(process.cwd(), '..', '..', '.pglite-data');
       fs.mkdirSync(dataDir, { recursive: true });
       const client = new PGlite(dataDir);
       await client.exec(DDL);

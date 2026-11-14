@@ -51,3 +51,16 @@ PORT=3000 npm run start -w apps/web
 - Node 版本 ≥ 22（项目 engines 声明 ≥24，22 可正常运行）。
 - 不要在多个服务进程中共用同一个 `.pglite-data` 目录。
 - 上传的图片在 `IRENO_UPLOAD_DIR`（默认 uploads/），同样需要备份。
+
+## 部署到 Vercel（免服务器，电脑关机也在线）
+
+1. 打开 https://vercel.com/new ，用 GitHub 账号登录，选择仓库 `2708053544/fangwu`。
+2. **Root Directory** 选 `apps/web`（本项目是 monorepo，前端在这里；页面外的 `packages/shared` 会被自动带上）。
+3. Framework 会识别为 Next.js，Build / Output 保持默认。
+4. 在 **Environment Variables** 里加两条：
+   - `SESSION_SECRET` = 一段至少 32 位的随机字符串（不配的话每次实例重启都会让所有人掉线）
+   - `DEEPSEEK_API_KEY` = 你的大模型 Key（不配也能跑，AI 识别/匹配会退回规则打分）
+5. 点 Deploy，等 2~3 分钟，得到 `https://<项目名>.vercel.app` 的永久 HTTPS 地址。
+
+说明：Vercel 是无服务器环境，项目目录只读，`packages/shared/src/db.ts` 已自动把 PGlite 数据目录切到 `/tmp/pglite-data`（仅在该环境生效，本地与普通服务器行为不变）。
+因此 Vercel 上的数据是**实例级的**：适合演示，不适合长期存数据。需要长期保存请用本文件前半部分的服务器部署方式。
