@@ -1,5 +1,8 @@
 'use client';
 
+// 首页是纯静态内容，预渲染成 HTML 直接走 CDN，跳过函数冷启动
+export const dynamic = 'force-static';
+
 import LeadHero, { openAuth } from './components/LeadHero';
 
 const AGENT_FLOW = [
