@@ -304,7 +304,9 @@ export async function getDb() {
       // 允许并行实例使用独立数据目录（IRENO_PGLITE_DIR），默认不变
       const dataDir = process.env.IRENO_PGLITE_DIR
         ? path.resolve(process.env.IRENO_PGLITE_DIR)
-        : path.join(process.cwd(), '..', '..', '.pglite-data');
+        : process.env.VERCEL
+          ? '/tmp/pglite-data'
+          : path.join(process.cwd(), '..', '..', '.pglite-data');
       fs.mkdirSync(dataDir, { recursive: true });
       const client = new PGlite(dataDir);
       await client.exec(DDL);
