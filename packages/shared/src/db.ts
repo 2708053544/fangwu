@@ -311,6 +311,20 @@ export async function getDb() {
         : serverless
           ? '/tmp/pglite-data'
           : path.join(process.cwd(), '..', '..', '.pglite-data');
+      // 冷启动提速：把构建时预生成的空数据目录复制到 /tmp，跳过 PGlite 首次 initdb
+      if (serverless && !fs.existsSync(dataDir)) {
+        const seed = [
+          path.join(process.cwd(), '.pglite-seed'),
+          path.join(process.cwd(), 'apps', 'web', '.pglite-seed'),
+        ].find((p) => fs.existsSync(p));
+        if (seed) {
+          try {
+            fs.cpSync(seed, dataDir, { recursive: true });
+          } catch {
+            // 复制失败就退回正常初始化
+          }
+        }
+      }
       try {
         fs.mkdirSync(dataDir, { recursive: true });
       } catch {
