@@ -175,7 +175,7 @@ export const EN: Record<string, string> = {
   '你想要的样子': 'The look you want', '八种常见风格。选一种开始，再在对话里改到满意。': 'Eight common styles. Pick one, then refine it in chat.', '智能体流水线': 'Agent pipeline',
   '个人用户免费使用 AI 设计': 'AI design is free for homeowners', '户型识别、二维图、3D 模型、效果图与报价对业主免费；仅装潢公司在接单时付费。': 'Plan reading, drawings, 3D, renders and quotes are free for homeowners; only contractors pay, when they take work.',
   '装潢公司入驻，接到合适的单': 'Contractors: join and get the right jobs', '提交执照与资质，经人工审核后即可参与业主发布的项目。': 'Submit your licence and credentials; after review you can bid on projects.',
-  '个人用户注册': 'Homeowner sign-up', 'I Renovation · AI 装修智能体平台': 'I Renovation · AI renovation agents',
+  '个人用户注册': 'Homeowner sign-up',
   '户型已修改，这张图可能和现在的户型不一致，建议重新生成': 'The plan changed; this image may not match it. Regenerate it.',
   '✓ 已核对：三面墙上的窗和门数量与户型图一致': '✓ Checked: window and door counts match the plan', '（重新生成到第': ' (passed on attempt ', '次才通过）': ')',
   '⚠ 没能通过核对：': '⚠ Didn\'t pass the check: ', '（已生成': ' (generated ', '次，留的是最接近的一张）。可以重新生成，或在对话里让 AI 改': ' times, kept the closest). Regenerate, or ask the AI in chat',
