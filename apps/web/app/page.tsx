@@ -103,7 +103,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="home-foot">I Renovation · AI 装修智能体平台</footer>
+      <footer className="home-foot">I Renovation</footer>
     </main>
   );
 }

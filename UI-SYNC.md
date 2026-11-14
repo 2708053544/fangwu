@@ -14,7 +14,7 @@ State as of 2026-11-07. Nothing here is committed; this folder is not a git repo
 - **Later change:** after the UI sync, the demo login was replaced by real login and API
   permissions, which did change routes and pages. That work is described in `AUTH.md`; this
   document covers only the UI sync.
-- **Backup of the original:** kept locally before the UI sync.
+- **Backup of the original:** `D:\chatgpt\new3d\junction-main-backup-2026-11-07`.
 
 ## 2. How the theme works
 
@@ -169,10 +169,10 @@ Earlier fixes during the sync:
   `lib/agnes.ts` sent an empty token and every image generation failed with
   `Agnes API 401 Invalid token`. Checked with one real generation through
   `/api/agnes/generate` (HTTP 200, image returned).
-- The same file holds `DEEPSEEK_BASE_URL` and `DEEPSEEK_API_KEY`, which
-  `lib/ai.ts` needs for floor-plan recognition and the agents. Checked:
-  - The key lists the DeepSeek models, including the `deepseek-flash` the code uses.
-  - `/api/ai/recognize` read a three-room test plan correctly (HTTP 200).
+- The same file holds `MIMO_BASE_URL=https://api.xiaomimimo.com/v1` and `MIMO_API_KEY`, which
+  `lib/mimo.ts` needs for floor-plan recognition and the agents. Checked:
+  - The key lists the MiMo models, including the `mimo-v2.6-pro` the code uses.
+  - `/api/mimo/recognize` read a three-room test plan correctly (HTTP 200).
 - `apps/worker` reads the same variable names but wasn't set up or run.
 
 ## 8. Open items

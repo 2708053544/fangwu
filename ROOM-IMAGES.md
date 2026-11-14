@@ -73,7 +73,7 @@ seconds, and a regenerate saved six empty images.
 
 **Cause.** This PC reaches the internet through a local proxy (`HTTPS_PROXY=http://127.0.0.1:7897`).
 `curl` uses it. Node's built-in `fetch` ignores it by default, so the server connected directly and
-timed out (`UND_ERR_CONNECT_TIMEOUT`). Recognition kept working because `lib/ai.ts` calls `curl`.
+timed out (`UND_ERR_CONNECT_TIMEOUT`). MiMo kept working because `lib/mimo.ts` calls `curl`.
 
 **Fix.** `apps/web/instrumentation.ts` calls Node's `http.setGlobalProxyFromEnv()` when the server
 starts (Node 24.5+), so `fetch` honors `HTTP_PROXY` / `HTTPS_PROXY`. It does nothing when no proxy
@@ -82,16 +82,16 @@ run.
 
 ## 4. Recognition now reads doors and windows (new)
 
-**Problem.** Section 2 left a gap. Floor-plan recognition read only the room rectangles. The
+**Problem.** Section 2 left a gap. Floor-plan recognition (MiMo) read only the room rectangles. The
 doors and windows in the 3D model and in the render layouts were then placed automatically by
 rules, so they could differ from the ones drawn in the AI floor-plan image.
 
 **Now.**
-- `POST /api/ai/recognize` also asks the vision model for every door and window as a box on the picture
+- `POST /api/mimo/recognize` also asks MiMo for every door and window as a box on the picture
   (`windows`, `doors`, in the same 0 to 1 picture coordinates as the rooms).
 - `assignOpeningsToRooms` (new, `packages/shared/src/plan.ts`) decides which room and which wall
   each box belongs to: the nearest room edge, and a shared wall gives the opening to both rooms.
-  Each room gets `openings: [{type, side, pos, size}]`. Asking the model for boxes and working out the
+  Each room gets `openings: [{type, side, pos, size}]`. Asking MiMo for boxes and working out the
   wall in code scored better than asking it for "which side of which room": 86% against 66% in my test.
 - `StudioRect` carries the openings (saved with the floor-plan input).
   `geometryFromStudioRects` passes them to `planFromRects`, which places doors and windows at those
@@ -99,7 +99,7 @@ rules, so they could differ from the ones drawn in the AI floor-plan image.
   old automatic placement. A shared door seen from both rooms is placed once; doors within 1.5 m on
   one wall count as one; a window recognised on an interior wall is ignored with a warning.
 - The tool now reports "已识别 N 个房间、M 处门窗".
-- **Thinking mode is switched off for this call** (`noThinking` option in `lib/ai.ts`,
+- **MiMo thinking mode is switched off for this call** (`noThinking` option in `lib/mimo.ts`,
   used only here). Thinking mode took about 27 to 37 seconds, sometimes ran past the 65-second
   limit, and in 2 of 3 runs used up the whole answer length and returned nothing. With it off the
   call takes about 7 seconds, and the quality was the same or better. The answer length limit is 4000 tokens.
@@ -152,7 +152,7 @@ renders and, when there was no floor plan, rooms and doors the system had simply
 answer then stayed forever. Each step below was measured on a test plan with a known answer, and the
 results, including the ones that did not help, are listed here.
 
-**6.1 Recognition by agreement (`lib/recognition.ts`, `/api/ai/recognize`).** The route asks the vision model
+**6.1 Recognition by agreement (`lib/recognition.ts`, `/api/mimo/recognize`).** The route asks MiMo
 three times in parallel and keeps only the rooms, doors and windows that at least two runs agree on
 (`runs` can be set 1 to 5). Every opening records how many runs saw it (`conf`). Openings the runs did
 not all agree on show an amber "待核对 ✓" button in the review list; editing one, or pressing ✓, counts
@@ -167,13 +167,13 @@ as the owner confirming it. The tool says how many need checking.
   was also tried (16 of 19 right) and rejected: it dropped real doors and added nothing on top of the votes.
 
 **6.2 Every render is checked (`lib/render-check.ts`, `/api/agnes/generate`, `/api/agnes/chat`).**
-After a picture is generated, the vision model counts the windows and doors on the far, left and right walls, and
+After a picture is generated, MiMo counts the windows and doors on the far, left and right walls, and
 the count is compared with what the plan says (`analyzeRoomLayout` gives the expected numbers). If it
 does not match, the picture is regenerated with a specific correction ("the left wall must have exactly 1
 door, the previous picture had 2"), up to 3 times. The closest picture is kept and the result is saved
 with it (`check`: passed or not, how many tries, what is still wrong). If the check itself cannot run, the
 picture is saved as "not checked", never as passed. Chat edits are checked the same way.
-- *Can the model count?* On 5 pictures whose contents I had judged by eye, it agreed in 14 of 15 runs and
+- *Can MiMo count?* On 5 pictures whose contents I had judged by eye, it agreed in 14 of 15 runs and
   found exactly the extra doors I saw.
 - *The cause of the failures, found by measuring.* The first version passed only 3 of 12 pictures on the first
   try, and the retries rescued just 1 more. The extra doors were exactly the ones the prompt listed
@@ -183,7 +183,7 @@ picture is saved as "not checked", never as passed. Chat edits are checked the s
 
 **6.3 Estimates are labelled, and old pictures are flagged (`page.tsx`).**
 - A project with no owner floor plan has rooms and doors the system invented (the agent labels them
-  `rule_engine`/`ai`, not `user_studio`). The panel now says so, such pictures are labelled "示意图", and no
+  `rule_engine`/`mimo`, not `user_studio`). The panel now says so, such pictures are labelled "示意图", and no
   layout is claimed or checked for them.
 - Each picture shows its state: "✓ 已核对", "⚠ 没能通过核对: 左墙多了 1 扇门（已生成 3 次，留的是最接近的一张）", "按户型图的门窗描述生成，但没有核对", or the estimate
   label. If the plan is edited afterwards (a door deleted, a room moved), the picture is marked "户型已修改，可能不一致"

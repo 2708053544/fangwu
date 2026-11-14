@@ -1,5 +1,5 @@
-// 路由级端到端：/api/ai/recognize 用大模型完成户型识别（房间矩形 + 门窗）。
-// 前置：npx next build 后，npx next start -p 3100 启动。
+// 路由级端到端：MiMo 故障时 /api/mimo/recognize 仍能用 DeepSeek 完成户型识别。
+// 前置：npx next build 后，用 MIMO_BASE_URL=http://127.0.0.1:9/v1 npx next start -p 3100 启动（模拟 MiMo 报错）。
 // 跑法：npx tsx _e2e_recognize.ts   （在 i-renovation 目录下）
 // 图形：脚本自绘 4 房 6 窗 3 门户型图（SVG→PNG，sharp 随 Next 安装），与文档 §4 的测试图同一构造思路。
 import { readFileSync } from 'node:fs';
@@ -51,9 +51,9 @@ async function main() {
   if (!login.ok || !cookie) { console.log(`FAIL 登录：HTTP ${login.status}`); process.exitCode = 1; return; }
   console.log('登录 OK');
 
-  // 3. 识别：走识别路由，返回房间矩形与门窗
+  // 3. 识别：MiMo 已指向不可达地址（服务端启动时设置），DeepSeek 必须接管
   const t0 = Date.now();
-  const res = await fetch(`${BASE}/api/ai/recognize`, {
+  const res = await fetch(`${BASE}/api/mimo/recognize`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie },
     body: JSON.stringify({ image }),
