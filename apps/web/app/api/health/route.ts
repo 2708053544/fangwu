@@ -6,7 +6,9 @@ export async function GET() {
   try {
     await (await getDb()).execute(sql`select 1`);
     return NextResponse.json({ ok: true, service: 'i-renovation-web', database: 'ready' });
-  } catch {
-    return NextResponse.json({ ok: false, database: 'unavailable' }, { status: 503 });
+  } catch (e) {
+    const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error('[health] database unavailable', e);
+    return NextResponse.json({ ok: false, database: 'unavailable', detail }, { status: 503 });
   }
 }
