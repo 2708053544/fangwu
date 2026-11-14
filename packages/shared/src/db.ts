@@ -314,14 +314,18 @@ export async function getDb() {
       // 冷启动提速：把构建时预生成的空数据目录复制到 /tmp，跳过 PGlite 首次 initdb
       if (serverless && !fs.existsSync(dataDir)) {
         const seed = [
-          path.join(process.cwd(), '.pglite-seed'),
-          path.join(process.cwd(), 'apps', 'web', '.pglite-seed'),
+          path.join(process.cwd(), 'pglite-seed'),
+          path.join(process.cwd(), 'apps', 'web', 'pglite-seed'),
         ].find((p) => fs.existsSync(p));
         if (seed) {
           try {
             fs.cpSync(seed, dataDir, { recursive: true });
+            // 复制不完整（缺关键目录）就丢掉，退回正常初始化
+            if (!fs.existsSync(path.join(dataDir, 'PG_VERSION')) || !fs.existsSync(path.join(dataDir, 'base'))) {
+              fs.rmSync(dataDir, { recursive: true, force: true });
+            }
           } catch {
-            // 复制失败就退回正常初始化
+            fs.rmSync(dataDir, { recursive: true, force: true });
           }
         }
       }

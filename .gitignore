@@ -9,4 +9,4 @@ uploads/
 # local database (accounts, projects) and build folders: never publish
 .pglite-data/
 .next*/
-.pglite-seed/
+pglite-seed/

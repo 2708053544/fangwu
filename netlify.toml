@@ -1,2 +1,2 @@
 [functions]
-  included_files = ["apps/web/.pglite-seed/**"]
+  included_files = ["apps/web/pglite-seed/**"]
