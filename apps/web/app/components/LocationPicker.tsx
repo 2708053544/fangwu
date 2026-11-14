@@ -1,28 +1,29 @@
 'use client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState } from 'react';
-import { addressAt, getMapConfig, loadAmap, type PlaceInfo } from '@/lib/amap-client';
+import { addressAt, getMapConfig, loadAmap, searchPlaces, wgs84ToGcj02, type PlaceInfo } from '@/lib/amap-client';
 import { useLang } from './LanguageProvider';
 
 const EMPTY: PlaceInfo = { province: '', city: '', district: '', community: '', address: '', lng: '', lat: '' };
 
-/** 新建项目表单里的“房屋位置”：高德搜索小区、点地图选点、或使用当前位置；结果写入表单字段。 */
+/** 新建项目表单里的“房屋位置”：搜索小区、点地图选点、或使用当前位置；结果写入表单字段。 */
 export default function LocationPicker() {
   const { t } = useLang();
   const mapEl = useRef<HTMLDivElement>(null);
-  const amap = useRef<{ AMap: any; map: any; marker: any; search: any } | null>(null);
+  const amap = useRef<{ AMap: any; map: any; marker: any } | null>(null);
   const [place, setPlace] = useState<PlaceInfo>(EMPTY);
-  const [status, setStatus] = useState('正在加载高德地图…');
+  const [status, setStatus] = useState('正在加载地图…');
   const [ready, setReady] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
 
   async function choose(name: string, pos: [number, number], fullAddress = '') {
     const a = amap.current; if (!a) return;
     setResults([]);
     a.map.setZoomAndCenter(16, pos);
     if (!a.marker) { a.marker = new a.AMap.Marker({ position: pos }); a.map.add(a.marker); } else a.marker.setPosition(pos);
-    const found = await addressAt(a.AMap, pos);
+    const found = await addressAt(pos[0], pos[1]);
     setPlace({
       ...EMPTY, ...found,
       community: name || found.community || '',
@@ -40,12 +41,12 @@ export default function LocationPicker() {
         const AMap = await loadAmap(cfg);
         if (cancelled || !mapEl.current) return;
         const map = new AMap.Map(mapEl.current, { zoom: 4, center: [104.2, 35.6] });
-        amap.current = { AMap, map, marker: null, search: null };
+        amap.current = { AMap, map, marker: null };
         map.on('click', (e: any) => choose('', [e.lnglat.getLng(), e.lnglat.getLat()]));
-        setReady(cfg.searchReady);
-        setStatus(cfg.searchReady ? '' : '地图已加载，但搜索未配置安全密钥。');
+        setReady(true);
+        setStatus('');
       } catch {
-        if (!cancelled) setStatus('无法连接高德地图，请直接填写地址。');
+        if (!cancelled) setStatus('无法连接地图，请直接填写地址。');
       }
     })();
     return () => { cancelled = true; amap.current?.map?.destroy(); amap.current = null; };
@@ -53,15 +54,20 @@ export default function LocationPicker() {
   }, []);
 
   useEffect(() => {
-    const a = amap.current;
     const k = keyword.trim();
-    if (!a || !ready || !k) { setResults([]); return; }
-    const timer = setTimeout(() => {
-      a.search ??= new a.AMap.PlaceSearch({ type: '商务住宅', pageSize: 8, city: '全国', citylimit: false });
-      a.search.search(k, (state: string, r: any) => {
-        if (state === 'complete' && r.poiList?.pois?.length) { setResults(r.poiList.pois); setStatus(''); }
-        else { setResults([]); setStatus(state === 'no_data' ? '没有找到这个小区，换个名字或点地图选点。' : '搜索失败，请稍后再试。'); }
-      });
+    if (!ready || !k) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const pois = await searchPlaces(k);
+        setResults(pois);
+        setStatus(pois.length ? '' : '没有找到这个地点，换个名字或点地图选点。');
+      } catch {
+        setResults([]);
+        setStatus('搜索失败，请稍后再试。');
+      } finally {
+        setSearching(false);
+      }
     }, 350);
     return () => clearTimeout(timer);
   }, [keyword, ready]);
@@ -70,14 +76,11 @@ export default function LocationPicker() {
     if (!navigator.geolocation) { setStatus('当前浏览器不支持定位。'); return; }
     setStatus('正在定位…');
     navigator.geolocation.getCurrentPosition(
-      // 浏览器给出 WGS-84 坐标，先由高德转换到其坐标系再选点
+      // 浏览器给出 WGS-84 坐标，转换为高德 GCJ-02 后选点
       (p) => {
-        const a = amap.current; if (!a) return;
-        a.AMap.convertFrom([p.coords.longitude, p.coords.latitude], 'gps', (state: string, r: any) => {
-          const ll = state === 'complete' && r.locations?.[0];
-          setStatus('');
-          choose('', ll ? [ll.getLng(), ll.getLat()] : [p.coords.longitude, p.coords.latitude]);
-        });
+        setStatus('');
+        const [lng, lat] = wgs84ToGcj02(p.coords.longitude, p.coords.latitude);
+        choose('', [lng, lat]);
       },
       () => setStatus('无法获取位置：请允许定位，或搜索小区。'),
       { enableHighAccuracy: true, timeout: 10_000 },
@@ -95,13 +98,14 @@ export default function LocationPicker() {
           placeholder={t('输入小区名称，例如“联洋花园”')} aria-label={t('搜索小区')} autoComplete="off" />
         <button type="button" className="btn btn-ghost" onClick={useMyLocation} disabled={!ready}>{t('使用我的位置')}</button>
       </div>
+      {searching && <p className="location-status" role="status">搜索中…</p>}
       {results.length > 0 && (
         <div className="location-results">
           {results.map((poi) => (
-            <button type="button" key={poi.id} className="location-result"
-              onClick={() => choose(poi.name, [poi.location.lng, poi.location.lat], str(poi.address) ? `${str(poi.pname)}${str(poi.cityname)}${str(poi.adname)}${str(poi.address)}` : '')}>
+            <button type="button" key={`${poi.lng},${poi.lat}`} className="location-result"
+              onClick={() => choose(poi.name, [poi.lng, poi.lat], poi.address)}>
               <strong>{poi.name}</strong>
-              <span>{[poi.pname, poi.cityname, poi.adname, poi.address].map(str).filter(Boolean).join(' · ')}</span>
+              <span>{poi.address}</span>
             </button>
           ))}
         </div>
